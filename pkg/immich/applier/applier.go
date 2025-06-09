@@ -46,13 +46,15 @@ func (a *Applier) Apply(p *plan.Plan, opts *ApplyOptions) error {
 	}
 
 	for i, op := range p.Operations {
-		req, err := a.client.NewRequest(op.Apply.Method, op.Apply.Path, op.Apply.Body)
-		if err != nil {
-			return fmt.Errorf("creating request for operation %d: %w", i, err)
-		}
+		for j, req := range op.Apply {
+			request, err := a.client.NewRequest(req.Method, req.Path, req.Body)
+			if err != nil {
+				return fmt.Errorf("creating request %d for operation %d: %w", j, i, err)
+			}
 
-		if err := a.client.Do(req, nil); err != nil {
-			return fmt.Errorf("executing operation %d: %w", i, err)
+			if err := a.client.Do(request, nil); err != nil {
+				return fmt.Errorf("executing request %d for operation %d: %w", j, i, err)
+			}
 		}
 	}
 
@@ -65,15 +67,27 @@ func (a *Applier) dryRunApply(p *plan.Plan, w io.Writer) error {
 		return fmt.Errorf("writer is required for dry run")
 	}
 
-	fmt.Fprintf(w, "Dry run mode: would execute %d operations\n", len(p.Operations))
+	// Count total requests
+	totalRequests := 0
+	for _, op := range p.Operations {
+		totalRequests += len(op.Apply)
+	}
+
+	fmt.Fprintf(w, "Dry run mode: would execute %d operations with %d total requests\n", 
+		len(p.Operations), totalRequests)
+	
 	for i, op := range p.Operations {
-		fmt.Fprintf(w, "Operation %d: %s %s\n", i+1, op.Apply.Method, op.Apply.Path)
-		if op.Apply.Body != nil {
-			bodyJSON, err := json.MarshalIndent(op.Apply.Body, "  ", "  ")
-			if err != nil {
-				return fmt.Errorf("marshaling body for operation %d: %w", i, err)
+		fmt.Fprintf(w, "Operation %d: %d requests\n", i+1, len(op.Apply))
+		
+		for j, req := range op.Apply {
+			fmt.Fprintf(w, "  Request %d.%d: %s %s\n", i+1, j+1, req.Method, req.Path)
+			if req.Body != nil {
+				bodyJSON, err := json.MarshalIndent(req.Body, "    ", "  ")
+				if err != nil {
+					return fmt.Errorf("marshaling body for operation %d request %d: %w", i, j, err)
+				}
+				fmt.Fprintf(w, "    Body: %s\n", bodyJSON)
 			}
-			fmt.Fprintf(w, "  Body: %s\n", bodyJSON)
 		}
 	}
 
@@ -93,13 +107,17 @@ func (a *Applier) Revert(p *plan.Plan, opts *ApplyOptions) error {
 	// Execute operations in reverse order
 	for i := len(p.Operations) - 1; i >= 0; i-- {
 		op := p.Operations[i]
-		req, err := a.client.NewRequest(op.Revert.Method, op.Revert.Path, op.Revert.Body)
-		if err != nil {
-			return fmt.Errorf("creating revert request for operation %d: %w", i, err)
-		}
+		
+		// Execute each revert request in order
+		for j, req := range op.Revert {
+			request, err := a.client.NewRequest(req.Method, req.Path, req.Body)
+			if err != nil {
+				return fmt.Errorf("creating revert request %d for operation %d: %w", j, i, err)
+			}
 
-		if err := a.client.Do(req, nil); err != nil {
-			return fmt.Errorf("executing revert operation %d: %w", i, err)
+			if err := a.client.Do(request, nil); err != nil {
+				return fmt.Errorf("executing revert request %d for operation %d: %w", j, i, err)
+			}
 		}
 	}
 
@@ -112,16 +130,32 @@ func (a *Applier) dryRunRevert(p *plan.Plan, w io.Writer) error {
 		return fmt.Errorf("writer is required for dry run")
 	}
 
-	fmt.Fprintf(w, "Dry run mode: would revert %d operations\n", len(p.Operations))
+	// Count total requests
+	totalRequests := 0
+	for _, op := range p.Operations {
+		totalRequests += len(op.Revert)
+	}
+
+	fmt.Fprintf(w, "Dry run mode: would revert %d operations with %d total requests\n", 
+		len(p.Operations), totalRequests)
+	
+	// Operations are processed in reverse order for revert
 	for i := len(p.Operations) - 1; i >= 0; i-- {
 		op := p.Operations[i]
-		fmt.Fprintf(w, "Operation %d: %s %s\n", len(p.Operations)-i, op.Revert.Method, op.Revert.Path)
-		if op.Revert.Body != nil {
-			bodyJSON, err := json.MarshalIndent(op.Revert.Body, "  ", "  ")
-			if err != nil {
-				return fmt.Errorf("marshaling body for revert operation %d: %w", i, err)
+		opNumber := len(p.Operations) - i
+		
+		fmt.Fprintf(w, "Operation %d: %d requests\n", opNumber, len(op.Revert))
+		
+		// Requests within an operation are processed in original order
+		for j, req := range op.Revert {
+			fmt.Fprintf(w, "  Request %d.%d: %s %s\n", opNumber, j+1, req.Method, req.Path)
+			if req.Body != nil {
+				bodyJSON, err := json.MarshalIndent(req.Body, "    ", "  ")
+				if err != nil {
+					return fmt.Errorf("marshaling body for revert operation %d request %d: %w", i, j, err)
+				}
+				fmt.Fprintf(w, "    Body: %s\n", bodyJSON)
 			}
-			fmt.Fprintf(w, "  Body: %s\n", bodyJSON)
 		}
 	}
 

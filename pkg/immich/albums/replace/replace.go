@@ -72,15 +72,19 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 		}
 
 		p.Operations = append(p.Operations, plan.Operation{
-			Apply: plan.Request{
-				Path:   fmt.Sprintf("/api/albums/%s", album.ID),
-				Method: "PATCH",
-				Body:   jsonBody,
+			Apply: []plan.Request{
+				{
+					Path:   fmt.Sprintf("/api/albums/%s", album.ID),
+					Method: "PATCH",
+					Body:   jsonBody,
+				},
 			},
-			Revert: plan.Request{
-				Path:   fmt.Sprintf("/api/albums/%s", album.ID),
-				Method: "PATCH",
-				Body:   revertJsonBody,
+			Revert: []plan.Request{
+				{
+					Path:   fmt.Sprintf("/api/albums/%s", album.ID),
+					Method: "PATCH",
+					Body:   revertJsonBody,
+				},
 			},
 		})
 	}

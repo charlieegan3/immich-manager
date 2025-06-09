@@ -49,27 +49,35 @@ func TestApplier_ApplyAndRevert(t *testing.T) {
 	p := &plan.Plan{
 		Operations: []plan.Operation{
 			{
-				Apply: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+					},
 				},
-				Revert: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				Revert: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+					},
 				},
 			},
 			{
-				Apply: plan.Request{
-					Path:   "/api/albums/2",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "new name 2"}`),
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/2",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "new name 2"}`),
+					},
 				},
-				Revert: plan.Request{
-					Path:   "/api/albums/2",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "old name 2"}`),
+				Revert: []plan.Request{
+					{
+						Path:   "/api/albums/2",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "old name 2"}`),
+					},
 				},
 			},
 		},
@@ -121,15 +129,19 @@ func TestApplier_ErrorHandling(t *testing.T) {
 	p := &plan.Plan{
 		Operations: []plan.Operation{
 			{
-				Apply: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"invalid": "json"`), // Invalid JSON
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"invalid": "json"`), // Invalid JSON
+					},
 				},
-				Revert: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				Revert: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+					},
 				},
 			},
 		},
@@ -161,15 +173,19 @@ func TestDryRunApply(t *testing.T) {
 	p := &plan.Plan{
 		Operations: []plan.Operation{
 			{
-				Apply: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+					},
 				},
-				Revert: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				Revert: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+					},
 				},
 			},
 		},
@@ -207,7 +223,8 @@ func TestDryRunApply(t *testing.T) {
 	expectedStrings := []string{
 		"Dry run mode",
 		"would execute 1 operations",
-		"Operation 1: PATCH /api/albums/1",
+		"Operation 1:",
+		"Request 1.1: PATCH /api/albums/1",
 		"albumName",
 		"new name 1",
 	}
@@ -224,15 +241,19 @@ func TestDryRunRevert(t *testing.T) {
 	p := &plan.Plan{
 		Operations: []plan.Operation{
 			{
-				Apply: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+					},
 				},
-				Revert: plan.Request{
-					Path:   "/api/albums/1",
-					Method: "PATCH",
-					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				Revert: []plan.Request{
+					{
+						Path:   "/api/albums/1",
+						Method: "PATCH",
+						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+					},
 				},
 			},
 		},
@@ -270,7 +291,8 @@ func TestDryRunRevert(t *testing.T) {
 	expectedStrings := []string{
 		"Dry run mode",
 		"would revert 1 operations",
-		"Operation 1: PATCH /api/albums/1",
+		"Operation 1:",
+		"Request 1.1: PATCH /api/albums/1",
 		"albumName",
 		"old name 1",
 	}

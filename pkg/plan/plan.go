@@ -7,10 +7,10 @@ import (
 	"os"
 )
 
-// Operation represents a single API operation to be performed
+// Operation represents a set of API operations to be performed
 type Operation struct {
-	Apply  Request `json:"apply"`
-	Revert Request `json:"revert"`
+	Apply  []Request `json:"apply"`
+	Revert []Request `json:"revert"`
 }
 
 // Request represents a single API request
