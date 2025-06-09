@@ -1,0 +1,283 @@
+package applier
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"immich-manager/pkg/immich"
+	"immich-manager/pkg/plan"
+)
+
+func TestApplier_ApplyAndRevert(t *testing.T) {
+	// Create mock state to track album names
+	albumState := map[string]string{
+		"1": "old name 1",
+		"2": "old name 2",
+	}
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract album ID from path
+		albumID := r.URL.Path[len("/api/albums/"):]
+
+		// Verify request body
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("Failed to decode request body: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if body["albumName"] == "" {
+			t.Error("Expected albumName in request body")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// Update state
+		albumState[albumID] = body["albumName"]
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Create test plan
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+				},
+				Revert: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				},
+			},
+			{
+				Apply: plan.Request{
+					Path:   "/api/albums/2",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "new name 2"}`),
+				},
+				Revert: plan.Request{
+					Path:   "/api/albums/2",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "old name 2"}`),
+				},
+			},
+		},
+	}
+
+	// Create client and applier
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+
+	// Test Apply
+	t.Run("Apply", func(t *testing.T) {
+		if err := applier.Apply(p, nil); err != nil {
+			t.Fatalf("Apply() error = %v", err)
+		}
+
+		// Verify final state after apply
+		if albumState["1"] != "new name 1" {
+			t.Errorf("Expected album 1 name to be 'new name 1', got %s", albumState["1"])
+		}
+		if albumState["2"] != "new name 2" {
+			t.Errorf("Expected album 2 name to be 'new name 2', got %s", albumState["2"])
+		}
+	})
+
+	// Test Revert
+	t.Run("Revert", func(t *testing.T) {
+		if err := applier.Revert(p, nil); err != nil {
+			t.Fatalf("Revert() error = %v", err)
+		}
+
+		// Verify final state after revert
+		if albumState["1"] != "old name 1" {
+			t.Errorf("Expected album 1 name to be 'old name 1', got %s", albumState["1"])
+		}
+		if albumState["2"] != "old name 2" {
+			t.Errorf("Expected album 2 name to be 'old name 2', got %s", albumState["2"])
+		}
+	})
+}
+
+func TestApplier_ErrorHandling(t *testing.T) {
+	// Create test server that returns errors
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// Create test plan with invalid operation
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"invalid": "json"`), // Invalid JSON
+				},
+				Revert: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				},
+			},
+		},
+	}
+
+	// Create client and applier
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+
+	// Test Apply error
+	t.Run("Apply Error", func(t *testing.T) {
+		err := applier.Apply(p, nil)
+		if err == nil {
+			t.Error("Expected error from Apply(), got nil")
+		}
+	})
+
+	// Test Revert error
+	t.Run("Revert Error", func(t *testing.T) {
+		err := applier.Revert(p, nil)
+		if err == nil {
+			t.Error("Expected error from Revert(), got nil")
+		}
+	})
+}
+
+func TestDryRunApply(t *testing.T) {
+	// Create test plan
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+				},
+				Revert: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				},
+			},
+		},
+	}
+
+	// Create a mock server that should NOT be called
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("Server was called during a dry run")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// Create client and applier
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+
+	// Test dry run apply
+	var buf bytes.Buffer
+	opts := &ApplyOptions{
+		DryRun: true,
+		Writer: &buf,
+	}
+
+	err := applier.Apply(p, opts)
+	if err != nil {
+		t.Fatalf("Apply() with dry run error = %v", err)
+	}
+
+	output := buf.String()
+	if output == "" {
+		t.Error("Dry run apply produced no output")
+	}
+
+	// Check for expected output strings
+	expectedStrings := []string{
+		"Dry run mode",
+		"would execute 1 operations",
+		"Operation 1: PATCH /api/albums/1",
+		"albumName",
+		"new name 1",
+	}
+
+	for _, s := range expectedStrings {
+		if !strings.Contains(output, s) {
+			t.Errorf("Dry run output missing expected string: %s", s)
+		}
+	}
+}
+
+func TestDryRunRevert(t *testing.T) {
+	// Create test plan
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "new name 1"}`),
+				},
+				Revert: plan.Request{
+					Path:   "/api/albums/1",
+					Method: "PATCH",
+					Body:   json.RawMessage(`{"albumName": "old name 1"}`),
+				},
+			},
+		},
+	}
+
+	// Create a mock server that should NOT be called
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("Server was called during a dry run")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// Create client and applier
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+
+	// Test dry run revert
+	var buf bytes.Buffer
+	opts := &ApplyOptions{
+		DryRun: true,
+		Writer: &buf,
+	}
+
+	err := applier.Revert(p, opts)
+	if err != nil {
+		t.Fatalf("Revert() with dry run error = %v", err)
+	}
+
+	output := buf.String()
+	if output == "" {
+		t.Error("Dry run revert produced no output")
+	}
+
+	// Check for expected output strings
+	expectedStrings := []string{
+		"Dry run mode",
+		"would revert 1 operations",
+		"Operation 1: PATCH /api/albums/1",
+		"albumName",
+		"old name 1",
+	}
+
+	for _, s := range expectedStrings {
+		if !strings.Contains(output, s) {
+			t.Errorf("Dry run output missing expected string: %s", s)
+		}
+	}
+}
