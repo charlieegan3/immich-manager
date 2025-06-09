@@ -13,4 +13,5 @@ var albumsCmd = &cobra.Command{
 func init() {
 	planCmd.AddCommand(albumsCmd)
 	albumsCmd.AddCommand(albums.ReplaceCmd)
+	albumsCmd.AddCommand(albums.AddUserCmd)
 }
