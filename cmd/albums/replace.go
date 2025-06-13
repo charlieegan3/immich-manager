@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"immich-manager/pkg/immich"
 	"immich-manager/pkg/immich/albums/replace"
+
+	"github.com/spf13/cobra"
 )
 
 var ReplaceCmd = &cobra.Command{
@@ -29,6 +30,7 @@ var ReplaceCmd = &cobra.Command{
 		}
 
 		client := immich.NewClient(server, token)
+
 		generator := replace.NewGenerator(client, before, after)
 
 		plan, err := generator.Generate()
