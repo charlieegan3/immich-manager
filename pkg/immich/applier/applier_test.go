@@ -3,6 +3,7 @@ package applier
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -301,5 +302,64 @@ func TestDryRunRevert(t *testing.T) {
 		if !strings.Contains(output, s) {
 			t.Errorf("Dry run output missing expected string: %s", s)
 		}
+	}
+}
+
+func TestNilBodyRequest(t *testing.T) {
+	// Track if the Content-Type header was set
+	var contentTypeWasSet bool
+	var bodyWasEmpty bool
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check for Content-Type header
+		contentTypeWasSet = r.Header.Get("Content-Type") != ""
+		
+		// Check if the body is empty
+		body, _ := io.ReadAll(r.Body)
+		bodyWasEmpty = len(body) == 0
+		
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Create test plan with a DELETE request with no body field
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/1/user/123",
+						Method: "DELETE",
+						// No Body field
+					},
+				},
+				Revert: []plan.Request{
+					{
+						Path:   "/api/albums/1/users",
+						Method: "PUT",
+						Body:   json.RawMessage(`{"albumUsers": [{"role": "viewer", "userId": "123"}]}`),
+					},
+				},
+			},
+		},
+	}
+
+	// Create client and applier
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+
+	// Test Apply with no body field
+	if err := applier.Apply(p, nil); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+
+	// Verify that Content-Type header was NOT set and body was empty
+	if contentTypeWasSet {
+		t.Error("Content-Type header was set for request without body field")
+	}
+	
+	if !bodyWasEmpty {
+		t.Error("Request body was not empty for request without body field")
 	}
 }

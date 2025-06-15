@@ -82,8 +82,8 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	for _, album := range filteredAlbums {
 		// Check if user is already in the album
 		userAlreadyInAlbum := false
-		for _, sharedUser := range album.SharedUsers {
-			if sharedUser.ID == targetUser.ID {
+		for _, albumUser := range album.AlbumUsers {
+			if albumUser.UserID == targetUser.ID {
 				userAlreadyInAlbum = true
 				break
 			}

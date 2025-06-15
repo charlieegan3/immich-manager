@@ -50,7 +50,9 @@ func (c *Client) SetAuthHeader(req *http.Request) {
 // NewRequest creates a new HTTP request with the given method and path
 func (c *Client) NewRequest(method, path string, body interface{}) (*http.Request, error) {
 	var bodyReader io.Reader
-	if body != nil {
+	
+	// For DELETE requests, always use nil body to avoid sending "null"
+	if method != "DELETE" && body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling request body: %w", err)
@@ -64,7 +66,8 @@ func (c *Client) NewRequest(method, path string, body interface{}) (*http.Reques
 	}
 
 	c.SetAuthHeader(req)
-	if body != nil {
+	// Only set Content-Type header for non-DELETE requests with body
+	if method != "DELETE" && body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
@@ -103,7 +106,10 @@ func (c *Client) Do(req *http.Request, v interface{}) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Create detailed error message with request and response information
 		var requestBodyStr string
-		if len(requestBodyBytes) > 0 {
+		if req.Method == "DELETE" {
+			// For DELETE requests, never show the body in error messages
+			requestBodyStr = "<no body>"
+		} else if len(requestBodyBytes) > 0 {
 			requestBodyStr = string(requestBodyBytes)
 		} else {
 			requestBodyStr = "<empty>"
