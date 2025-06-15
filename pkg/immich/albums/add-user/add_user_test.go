@@ -16,11 +16,16 @@ func TestGenerator_Generate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/albums":
+			// Create a user object for album 3 where the user is already a member
+			userInAlbum := immich.AlbumUser{}
+			userInAlbum.User.ID = "user123" // This matches the test user we'll be looking up
+			userInAlbum.Role = "viewer"
+
 			// Return mock albums
 			albums := []immich.Album{
-				{ID: "1", Name: "vacation photos"},
-				{ID: "2", Name: "work photos"},
-				{ID: "3", Name: "vacation memories"},
+				{ID: "1", Name: "vacation photos", AlbumUsers: []immich.AlbumUser{}},
+				{ID: "2", Name: "work photos", AlbumUsers: []immich.AlbumUser{}},
+				{ID: "3", Name: "vacation memories", AlbumUsers: []immich.AlbumUser{userInAlbum}},
 			}
 			json.NewEncoder(w).Encode(albums)
 			return
@@ -50,12 +55,13 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 
 	// Verify plan
-	if len(p.Operations) != 2 {
-		t.Errorf("Expected 2 operations, got %d", len(p.Operations))
+	if len(p.Operations) != 1 {
+		t.Errorf("Expected 1 operation, got %d", len(p.Operations))
 	}
 
 	// Verify operations for albums with "vacation" in the name
-	expectedAlbumIDs := map[string]bool{"1": false, "3": false}
+	// Album 3 should be excluded because the user is already a member
+	expectedAlbumIDs := map[string]bool{"1": false}
 
 	for _, op := range p.Operations {
 		// Verify apply operation
@@ -156,8 +162,8 @@ func TestGenerator_NoMatchingAlbums(t *testing.T) {
 		case "/api/albums":
 			// Return mock albums with no matches
 			albums := []immich.Album{
-				{ID: "1", Name: "work photos"},
-				{ID: "2", Name: "family photos"},
+				{ID: "1", Name: "work photos", AlbumUsers: []immich.AlbumUser{}},
+				{ID: "2", Name: "family photos", AlbumUsers: []immich.AlbumUser{}},
 			}
 			json.NewEncoder(w).Encode(albums)
 			return
@@ -195,7 +201,7 @@ func TestGenerator_UserNotFound(t *testing.T) {
 		case "/api/albums":
 			// Return mock albums
 			albums := []immich.Album{
-				{ID: "1", Name: "vacation photos"},
+				{ID: "1", Name: "vacation photos", AlbumUsers: []immich.AlbumUser{}},
 			}
 			json.NewEncoder(w).Encode(albums)
 			return

@@ -9,6 +9,8 @@ type User struct {
 
 // AlbumUser represents a user shared with an album
 type AlbumUser struct {
-	UserID string `json:"userId"`
-	Role   string `json:"role"`
+	User struct {
+		ID string `json:"id"`
+	} `json:"user"`
+	Role string `json:"role"`
 }
