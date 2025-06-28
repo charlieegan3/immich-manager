@@ -14,11 +14,9 @@ var dryRun bool
 
 var applyCmd = &cobra.Command{
 	Use:   "apply [plan-file]",
-	Short: "Apply a plan to the Immich API",
-	Args:  cobra.ExactArgs(1),
+	Short: "Apply a plan to the Immich API (use '-' or omit to read from stdin)",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		planFile := args[0]
-
 		token := os.Getenv("IMMICH_TOKEN")
 		if token == "" {
 			return fmt.Errorf("IMMICH_TOKEN environment variable is required")
@@ -29,9 +27,22 @@ var applyCmd = &cobra.Command{
 			return fmt.Errorf("IMMICH_SERVER environment variable is required")
 		}
 
-		p, err := plan.Load(planFile)
-		if err != nil {
-			return fmt.Errorf("loading plan: %w", err)
+		var p *plan.Plan
+		var err error
+
+		if len(args) == 0 || args[0] == "-" {
+			// Read from stdin
+			p, err = plan.LoadFromReader(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("loading plan from stdin: %w", err)
+			}
+		} else {
+			// Read from file
+			planFile := args[0]
+			p, err = plan.Load(planFile)
+			if err != nil {
+				return fmt.Errorf("loading plan: %w", err)
+			}
 		}
 
 		client := immich.NewClient(server, token)
