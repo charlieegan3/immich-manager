@@ -5,7 +5,7 @@
       type = "github";
       owner = "NixOS";
       repo = "nixpkgs";
-      rev = "70c74b02eac46f4e4aa071e45a6189ce0f6d9265";
+      rev = "4b1164c3215f018c4442463a27689d973cffd750";
     };
     flake-utils.url = "github:numtide/flake-utils";
   };
