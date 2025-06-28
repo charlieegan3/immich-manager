@@ -51,13 +51,16 @@ func (c *Client) SetAuthHeader(req *http.Request) {
 func (c *Client) NewRequest(method, path string, body interface{}) (*http.Request, error) {
 	var bodyReader io.Reader
 	
-	// For DELETE requests, always use nil body to avoid sending "null"
-	if method != "DELETE" && body != nil {
+	// Handle request body - avoid sending "null" for any method when body is nil
+	if body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling request body: %w", err)
 		}
-		bodyReader = bytes.NewReader(jsonBody)
+		// Only use the body if it's not just "null"
+		if string(jsonBody) != "null" {
+			bodyReader = bytes.NewReader(jsonBody)
+		}
 	}
 
 	req, err := http.NewRequest(method, c.serverURL+path, bodyReader)
@@ -66,8 +69,8 @@ func (c *Client) NewRequest(method, path string, body interface{}) (*http.Reques
 	}
 
 	c.SetAuthHeader(req)
-	// Only set Content-Type header for non-DELETE requests with body
-	if method != "DELETE" && body != nil {
+	// Set Content-Type header for any request with body
+	if bodyReader != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
@@ -106,13 +109,10 @@ func (c *Client) Do(req *http.Request, v interface{}) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Create detailed error message with request and response information
 		var requestBodyStr string
-		if req.Method == "DELETE" {
-			// For DELETE requests, never show the body in error messages
-			requestBodyStr = "<no body>"
-		} else if len(requestBodyBytes) > 0 {
+		if len(requestBodyBytes) > 0 {
 			requestBodyStr = string(requestBodyBytes)
 		} else {
-			requestBodyStr = "<empty>"
+			requestBodyStr = "<no body>"
 		}
 		
 		return fmt.Errorf("API error: %s %s\nStatus: %d %s\nRequest body: %s\nResponse body: %s",

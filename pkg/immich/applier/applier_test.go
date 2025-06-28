@@ -363,3 +363,214 @@ func TestNilBodyRequest(t *testing.T) {
 		t.Error("Request body was not empty for request without body field")
 	}
 }
+
+func TestDeleteRequestWithBody(t *testing.T) {
+	// Track request details
+	var receivedMethod string
+	var receivedBody map[string]interface{}
+	var contentTypeWasSet bool
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		contentTypeWasSet = r.Header.Get("Content-Type") == "application/json"
+		
+		// Read and parse the body
+		body, _ := io.ReadAll(r.Body)
+		if len(body) > 0 {
+			json.Unmarshal(body, &receivedBody)
+		}
+		
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Test DELETE request with body
+	testBody := map[string]interface{}{
+		"ids": []string{"asset-id-1", "asset-id-2"},
+	}
+	testBodyJSON, _ := json.Marshal(testBody)
+
+	// Create test plan with DELETE request that has a body
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/test-album-id/assets",
+						Method: "DELETE",
+						Body:   testBodyJSON,
+					},
+				},
+			},
+		},
+	}
+
+	// Create applier and apply plan
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+	
+	opts := &ApplyOptions{
+		DryRun: false,
+		Writer: io.Discard,
+	}
+
+	err := applier.Apply(p, opts)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	// Verify the request was sent correctly
+	if receivedMethod != "DELETE" {
+		t.Errorf("Expected DELETE method, got %s", receivedMethod)
+	}
+
+	if !contentTypeWasSet {
+		t.Error("Content-Type header was not set for DELETE request with body")
+	}
+
+	if receivedBody == nil {
+		t.Fatal("Request body was not received")
+	}
+
+	// Verify body content
+	ids, ok := receivedBody["ids"].([]interface{})
+	if !ok {
+		t.Fatal("Body does not contain 'ids' array")
+	}
+
+	if len(ids) != 2 {
+		t.Errorf("Expected 2 asset IDs, got %d", len(ids))
+	}
+
+	if ids[0].(string) != "asset-id-1" || ids[1].(string) != "asset-id-2" {
+		t.Errorf("Asset IDs don't match: got %v", ids)
+	}
+}
+
+func TestDeleteRequestWithoutBody(t *testing.T) {
+	// Track request details
+	var receivedMethod string
+	var bodyWasEmpty bool
+	var contentTypeWasSet bool
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		contentTypeWasSet = r.Header.Get("Content-Type") != ""
+		
+		// Check if the body is empty
+		body, _ := io.ReadAll(r.Body)
+		bodyWasEmpty = len(body) == 0
+		
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Create test plan with DELETE request without body
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/test-album-id/user/123",
+						Method: "DELETE",
+						// No Body field
+					},
+				},
+			},
+		},
+	}
+
+	// Create applier and apply plan
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+	
+	opts := &ApplyOptions{
+		DryRun: false,
+		Writer: io.Discard,
+	}
+
+	err := applier.Apply(p, opts)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	// Verify the request was sent correctly
+	if receivedMethod != "DELETE" {
+		t.Errorf("Expected DELETE method, got %s", receivedMethod)
+	}
+
+	if contentTypeWasSet {
+		t.Error("Content-Type header should not be set for DELETE request without body")
+	}
+
+	if !bodyWasEmpty {
+		t.Error("Request body should be empty for DELETE request without body")
+	}
+}
+
+func TestDeleteRequestWithNilBody(t *testing.T) {
+	// Track request details
+	var receivedMethod string
+	var bodyWasEmpty bool
+	var contentTypeWasSet bool
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMethod = r.Method
+		contentTypeWasSet = r.Header.Get("Content-Type") != ""
+		
+		// Check if the body is empty
+		body, _ := io.ReadAll(r.Body)
+		bodyWasEmpty = len(body) == 0
+		
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Test with nil body (explicit)
+	nilBodyJSON, _ := json.Marshal(nil)
+
+	// Create test plan with DELETE request with explicit nil body
+	p := &plan.Plan{
+		Operations: []plan.Operation{
+			{
+				Apply: []plan.Request{
+					{
+						Path:   "/api/albums/test-album-id/user/123",
+						Method: "DELETE",
+						Body:   nilBodyJSON,
+					},
+				},
+			},
+		},
+	}
+
+	// Create applier and apply plan
+	client := immich.NewClient(server.URL, "test-token")
+	applier := NewApplier(client)
+	
+	opts := &ApplyOptions{
+		DryRun: false,
+		Writer: io.Discard,
+	}
+
+	err := applier.Apply(p, opts)
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	// Verify the request was sent correctly
+	if receivedMethod != "DELETE" {
+		t.Errorf("Expected DELETE method, got %s", receivedMethod)
+	}
+
+	if contentTypeWasSet {
+		t.Error("Content-Type header should not be set for DELETE request with nil body")
+	}
+
+	if !bodyWasEmpty {
+		t.Error("Request body should be empty for DELETE request with nil body")
+	}
+}
