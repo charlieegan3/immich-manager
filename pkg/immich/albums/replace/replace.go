@@ -9,14 +9,14 @@ import (
 	"immich-manager/pkg/plan"
 )
 
-// Generator generates a plan for renaming albums
+// Generator generates a plan for renaming albums.
 type Generator struct {
 	client *immich.Client
 	before string
 	after  string
 }
 
-// NewGenerator creates a new rename plan generator
+// NewGenerator creates a new rename plan generator.
 func NewGenerator(client *immich.Client, before, after string) *Generator {
 	return &Generator{
 		client: client,
@@ -25,7 +25,7 @@ func NewGenerator(client *immich.Client, before, after string) *Generator {
 	}
 }
 
-// Generate creates a plan for renaming albums
+// Generate creates a plan for renaming albums.
 func (g *Generator) Generate() (*plan.Plan, error) {
 	// Get all albums
 	req, err := g.client.NewRequest("GET", "/api/albums", nil)
@@ -58,6 +58,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 			"albumName": newName,
 		}
 		jsonBody, err := json.Marshal(updateBody)
+
 		if err != nil {
 			return nil, fmt.Errorf("marshaling update body: %w", err)
 		}
@@ -66,7 +67,8 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 		revertBody := map[string]string{
 			"albumName": album.Name,
 		}
-		revertJsonBody, err := json.Marshal(revertBody)
+		revertJSONBody, err := json.Marshal(revertBody)
+
 		if err != nil {
 			return nil, fmt.Errorf("marshaling revert body: %w", err)
 		}
@@ -74,16 +76,16 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 		p.Operations = append(p.Operations, plan.Operation{
 			Apply: []plan.Request{
 				{
-					Path:   fmt.Sprintf("/api/albums/%s", album.ID),
+					Path:   "/api/albums/" + album.ID,
 					Method: "PATCH",
 					Body:   jsonBody,
 				},
 			},
 			Revert: []plan.Request{
 				{
-					Path:   fmt.Sprintf("/api/albums/%s", album.ID),
+					Path:   "/api/albums/" + album.ID,
 					Method: "PATCH",
-					Body:   revertJsonBody,
+					Body:   revertJSONBody,
 				},
 			},
 		})

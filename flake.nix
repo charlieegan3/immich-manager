@@ -28,7 +28,11 @@
         formatter = pkgs.nixpkgs-fmt;
         devShell = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
+            gci
+            gotools
+            gofumpt
             go_1_23
+            golangci-lint
             claude-code
           ];
           shellHook = '''';

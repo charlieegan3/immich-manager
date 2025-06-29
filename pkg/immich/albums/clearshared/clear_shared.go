@@ -9,13 +9,13 @@ import (
 	"immich-manager/pkg/plan"
 )
 
-// Generator generates a plan for removing a user from all shared albums
+// Generator generates a plan for removing a user from all shared albums.
 type Generator struct {
 	client *immich.Client
 	email  string
 }
 
-// NewGenerator creates a new plan generator for removing a user from shared albums
+// NewGenerator creates a new plan generator for removing a user from shared albums.
 func NewGenerator(client *immich.Client, email string) *Generator {
 	return &Generator{
 		client: client,
@@ -23,7 +23,7 @@ func NewGenerator(client *immich.Client, email string) *Generator {
 	}
 }
 
-// Generate creates a plan for removing a user from shared albums
+// Generate creates a plan for removing a user from shared albums.
 func (g *Generator) Generate() (*plan.Plan, error) {
 	// Get all shared albums
 	req, err := g.client.NewRequest("GET", "/api/albums?shared=true", nil)
@@ -54,7 +54,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	type Album struct {
 		ID          string      `json:"id"`
 		AlbumName   string      `json:"albumName"`
-		OwnerId     string      `json:"ownerId"`
+		OwnerID     string      `json:"ownerId"`
 		Owner       Owner       `json:"owner"`
 		Shared      bool        `json:"shared"`
 		AlbumUsers  []AlbumUser `json:"albumUsers"`
@@ -71,14 +71,18 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Filter shared albums by those that include the target user
 	userSharedAlbums := make([]Album, 0)
+
 	var targetUserID string
 
-	for _, album := range sharedAlbums {
+	for i := range sharedAlbums {
+		album := &sharedAlbums[i]
 		// Check if user is in this album
+
 		for _, albumUser := range album.AlbumUsers {
 			if strings.EqualFold(albumUser.User.Email, g.email) {
-				userSharedAlbums = append(userSharedAlbums, album)
+				userSharedAlbums = append(userSharedAlbums, *album)
 				targetUserID = albumUser.User.ID
+
 				break
 			}
 		}
@@ -97,12 +101,15 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	}
 
 	// Create operations for each album
-	for _, album := range userSharedAlbums {
+	for i := range userSharedAlbums {
+		album := &userSharedAlbums[i]
 		// Find the user's role in the album for the revert operation
 		var userRole string
+
 		for _, albumUser := range album.AlbumUsers {
 			if strings.EqualFold(albumUser.User.Email, g.email) {
 				userRole = albumUser.Role
+
 				break
 			}
 		}
@@ -116,7 +123,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 		}
 
 		// Prepare revert (add user back) body
-		revertBody := map[string]interface{}{
+		revertBody := map[string]any{
 			"albumUsers": []map[string]string{
 				{
 					"role":   userRole,
@@ -124,6 +131,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 				},
 			},
 		}
+
 		revertBodyJSON, err := json.Marshal(revertBody)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling revert body: %w", err)

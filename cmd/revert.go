@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -16,17 +17,17 @@ var revertCmd = &cobra.Command{
 	Use:   "revert [plan-file]",
 	Short: "Revert changes from a plan",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		planFile := args[0]
 
 		token := os.Getenv("IMMICH_TOKEN")
 		if token == "" {
-			return fmt.Errorf("IMMICH_TOKEN environment variable is required")
+			return errors.New("IMMICH_TOKEN environment variable is required")
 		}
 
 		server := os.Getenv("IMMICH_SERVER")
 		if server == "" {
-			return fmt.Errorf("IMMICH_SERVER environment variable is required")
+			return errors.New("IMMICH_SERVER environment variable is required")
 		}
 
 		p, err := plan.Load(planFile)
@@ -47,13 +48,15 @@ var revertCmd = &cobra.Command{
 		}
 
 		if !revertDryRun {
-			fmt.Printf("Successfully reverted plan with %d operations\n", len(p.Operations))
+			fmt.Fprintf(os.Stderr, "Successfully reverted plan with %d operations\n", len(p.Operations))
 		}
+
 		return nil
 	},
 }
 
 func init() {
-	revertCmd.Flags().BoolVar(&revertDryRun, "dry-run", false, "Print operations that would be performed without executing them")
+	revertCmd.Flags().BoolVar(&revertDryRun, "dry-run", false,
+		"Print operations that would be performed without executing them")
 	rootCmd.AddCommand(revertCmd)
 }

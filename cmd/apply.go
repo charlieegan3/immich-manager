@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -16,15 +17,15 @@ var applyCmd = &cobra.Command{
 	Use:   "apply [plan-file]",
 	Short: "Apply a plan to the Immich API (use '-' or omit to read from stdin)",
 	Args:  cobra.MaximumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		token := os.Getenv("IMMICH_TOKEN")
 		if token == "" {
-			return fmt.Errorf("IMMICH_TOKEN environment variable is required")
+			return errors.New("IMMICH_TOKEN environment variable is required")
 		}
 
 		server := os.Getenv("IMMICH_SERVER")
 		if server == "" {
-			return fmt.Errorf("IMMICH_SERVER environment variable is required")
+			return errors.New("IMMICH_SERVER environment variable is required")
 		}
 
 		var p *plan.Plan
@@ -58,8 +59,9 @@ var applyCmd = &cobra.Command{
 		}
 
 		if !dryRun {
-			fmt.Printf("Successfully applied plan with %d operations\n", len(p.Operations))
+			fmt.Fprintf(os.Stderr, "Successfully applied plan with %d operations\n", len(p.Operations))
 		}
+
 		return nil
 	},
 }

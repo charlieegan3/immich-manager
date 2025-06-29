@@ -9,22 +9,23 @@ import (
 )
 
 func TestClient_Do_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	// Test cases for different error scenarios
 	testCases := []struct {
 		name           string
 		statusCode     int
-		responseBody   map[string]interface{}
-		requestBody    map[string]interface{}
+		responseBody   map[string]any
+		requestBody    map[string]any
 		expectedErrMsg []string // Substrings that should appear in the error message
 	}{
 		{
 			name:       "400 Bad Request",
 			statusCode: http.StatusBadRequest,
-			responseBody: map[string]interface{}{
+			responseBody: map[string]any{
 				"error":   "Bad Request",
 				"message": "Invalid album ID format",
 			},
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"albumUsers": []map[string]string{
 					{"userId": "invalid-id", "role": "viewer"},
 				},
@@ -38,7 +39,7 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 		{
 			name:       "401 Unauthorized",
 			statusCode: http.StatusUnauthorized,
-			responseBody: map[string]interface{}{
+			responseBody: map[string]any{
 				"error":   "Unauthorized",
 				"message": "Invalid API key",
 			},
@@ -51,11 +52,11 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 		{
 			name:       "403 Forbidden",
 			statusCode: http.StatusForbidden,
-			responseBody: map[string]interface{}{
+			responseBody: map[string]any{
 				"error":   "Forbidden",
 				"message": "User does not have permission to modify this album",
 			},
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"albumUsers": []map[string]string{
 					{"userId": "user-123", "role": "admin"},
 				},
@@ -69,7 +70,7 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 		{
 			name:       "404 Not Found",
 			statusCode: http.StatusNotFound,
-			responseBody: map[string]interface{}{
+			responseBody: map[string]any{
 				"error":   "Not Found",
 				"message": "Album with ID 'album-456' not found",
 			},
@@ -82,11 +83,11 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 		{
 			name:       "409 Conflict",
 			statusCode: http.StatusConflict,
-			responseBody: map[string]interface{}{
+			responseBody: map[string]any{
 				"error":   "Conflict",
 				"message": "User is already in this album",
 			},
-			requestBody: map[string]interface{}{
+			requestBody: map[string]any{
 				"albumUsers": []map[string]string{
 					{"userId": "user-789", "role": "viewer"},
 				},
@@ -101,12 +102,13 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Create test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				// Set the status code
 				w.WriteHeader(tc.statusCode)
 				// Return the error response
-				json.NewEncoder(w).Encode(tc.responseBody)
+				_ = json.NewEncoder(w).Encode(tc.responseBody)
 			}))
 			defer server.Close()
 
@@ -114,7 +116,7 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 			client := NewClient(server.URL, "test-token")
 
 			// Create request with test body
-			req, err := client.NewRequest("POST", "/api/test-endpoint", tc.requestBody)
+			req, err := client.NewRequest(http.MethodPost, "/api/test-endpoint", tc.requestBody)
 			if err != nil {
 				t.Fatalf("Failed to create request: %v", err)
 			}
@@ -131,7 +133,7 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 			errMsg := err.Error()
 			for _, expectedSubstr := range tc.expectedErrMsg {
 				if !strings.Contains(errMsg, expectedSubstr) {
-					t.Errorf("Error message does not contain expected substring: %s\nActual error: %s", 
+					t.Errorf("Error message does not contain expected substring: %s\nActual error: %s",
 						expectedSubstr, errMsg)
 				}
 			}
@@ -145,7 +147,7 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 			if tc.requestBody != nil {
 				requestBodyJSON, _ := json.Marshal(tc.requestBody)
 				requestBodyStr := string(requestBodyJSON)
-				
+
 				if !strings.Contains(errMsg, requestBodyStr) {
 					t.Errorf("Error message does not contain the request body: %s", requestBodyStr)
 				}
@@ -154,9 +156,9 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 			// Verify that response body is included in the error
 			responseBodyJSON, _ := json.Marshal(tc.responseBody)
 			responseBodyStr := string(responseBodyJSON)
-			
+
 			if !strings.Contains(errMsg, strings.TrimSpace(responseBodyStr)) {
-				t.Errorf("Error message does not contain the response body details.\nExpected substring: %s\nActual error: %s", 
+				t.Errorf("Error message does not contain the response body details.\nExpected substring: %s\nActual error: %s",
 					responseBodyStr, errMsg)
 			}
 		})
@@ -164,11 +166,12 @@ func TestClient_Do_ErrorHandling(t *testing.T) {
 }
 
 func TestClient_Do_Success(t *testing.T) {
+	t.Parallel()
 	// Create test server that returns a successful response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Return successful response
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"id":   "album-123",
 			"name": "Test Album",
 		})
@@ -179,7 +182,7 @@ func TestClient_Do_Success(t *testing.T) {
 	client := NewClient(server.URL, "test-token")
 
 	// Create request
-	req, err := client.NewRequest("GET", "/api/albums/album-123", nil)
+	req, err := client.NewRequest(http.MethodGet, "/api/albums/album-123", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -187,7 +190,6 @@ func TestClient_Do_Success(t *testing.T) {
 	// Execute the request
 	var result map[string]string
 	err = client.Do(req, &result)
-
 	// Verify no error
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)

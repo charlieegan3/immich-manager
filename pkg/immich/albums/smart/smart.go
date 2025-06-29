@@ -2,6 +2,7 @@ package smart
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,13 +10,16 @@ import (
 	"immich-manager/pkg/plan"
 )
 
-// Generator generates a plan for managing a smart album that aggregates assets from all shared albums
+// ErrAlbumNotFound is returned when a smart album does not exist.
+var ErrAlbumNotFound = errors.New("album not found")
+
+// Generator generates a plan for managing a smart album that aggregates assets from all shared albums.
 type Generator struct {
 	client *immich.Client
 	email  string
 }
 
-// NewGenerator creates a new smart album plan generator
+// NewGenerator creates a new smart album plan generator.
 func NewGenerator(client *immich.Client, email string) *Generator {
 	return &Generator{
 		client: client,
@@ -23,7 +27,7 @@ func NewGenerator(client *immich.Client, email string) *Generator {
 	}
 }
 
-// Generate creates a plan for managing a smart album
+// Generate creates a plan for managing a smart album.
 func (g *Generator) Generate() (*plan.Plan, error) {
 	// 1. Find the user by email
 	user, err := g.findUserByEmail()
@@ -32,17 +36,16 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	}
 
 	// 2. Generate the "All NAME" album name
-	smartAlbumName := fmt.Sprintf("All %s", user.Name)
+	smartAlbumName := "All " + user.Name
 
 	// 3. Find the "All NAME" album
 	smartAlbum, err := g.findSmartAlbum(smartAlbumName)
 	if err != nil {
-		return nil, fmt.Errorf("finding smart album: %w", err)
-	}
+		if errors.Is(err, ErrAlbumNotFound) {
+			return nil, fmt.Errorf("smart album '%s' does not exist - please create it first", smartAlbumName)
+		}
 
-	// Abort if the album doesn't exist
-	if smartAlbum == nil {
-		return nil, fmt.Errorf("smart album '%s' does not exist - please create it first", smartAlbumName)
+		return nil, fmt.Errorf("finding smart album: %w", err)
 	}
 
 	// 4. Get all shared albums for the user
@@ -70,6 +73,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Find assets to remove (in smart album but not in any shared album)
 	assetsToRemove := make([]string, 0)
+
 	for assetID := range smartAlbumAssets {
 		if _, exists := sharedAssets[assetID]; !exists {
 			assetsToRemove = append(assetsToRemove, assetID)
@@ -78,18 +82,20 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Create operations for removing assets
 	if len(assetsToRemove) > 0 {
-		removeBody := map[string]interface{}{
+		removeBody := map[string]any{
 			"ids": assetsToRemove,
 		}
+
 		removeBodyJSON, err := json.Marshal(removeBody)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling remove assets body: %w", err)
 		}
 
 		// Revert would be to add these assets back to the album
-		addRemovedBody := map[string]interface{}{
+		addRemovedBody := map[string]any{
 			"ids": assetsToRemove,
 		}
+
 		addRemovedBodyJSON, err := json.Marshal(addRemovedBody)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling add removed assets body: %w", err)
@@ -115,6 +121,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Find assets to add (in shared albums but not in smart album)
 	assetsToAdd := make([]string, 0)
+
 	for assetID := range sharedAssets {
 		if _, exists := smartAlbumAssets[assetID]; !exists {
 			assetsToAdd = append(assetsToAdd, assetID)
@@ -123,18 +130,20 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Create operations for adding assets
 	if len(assetsToAdd) > 0 {
-		addBody := map[string]interface{}{
+		addBody := map[string]any{
 			"ids": assetsToAdd,
 		}
+
 		addBodyJSON, err := json.Marshal(addBody)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling add assets body: %w", err)
 		}
 
 		// Revert would be to remove these assets from the album
-		removeAddedBody := map[string]interface{}{
+		removeAddedBody := map[string]any{
 			"ids": assetsToAdd,
 		}
+
 		removeAddedBodyJSON, err := json.Marshal(removeAddedBody)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling remove added assets body: %w", err)
@@ -166,7 +175,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	return p, nil
 }
 
-// findUserByEmail finds a user by their email address
+// findUserByEmail finds a user by their email address.
 func (g *Generator) findUserByEmail() (*immich.User, error) {
 	req, err := g.client.NewRequest("GET", "/api/users", nil)
 	if err != nil {
@@ -187,7 +196,7 @@ func (g *Generator) findUserByEmail() (*immich.User, error) {
 	return nil, fmt.Errorf("no user found with email '%s'", g.email)
 }
 
-// findSmartAlbum finds the "All NAME" album, or returns nil if it doesn't exist
+// findSmartAlbum finds the "All NAME" album, or returns nil if it doesn't exist.
 func (g *Generator) findSmartAlbum(albumName string) (*immich.Album, error) {
 	// Try to find an existing album with this name
 	req, err := g.client.NewRequest("GET", "/api/albums", nil)
@@ -207,10 +216,10 @@ func (g *Generator) findSmartAlbum(albumName string) (*immich.Album, error) {
 	}
 
 	// Album doesn't exist
-	return nil, nil
+	return nil, ErrAlbumNotFound
 }
 
-// getSharedAlbums gets all albums shared with the user
+// getSharedAlbums gets all albums shared with the user.
 func (g *Generator) getSharedAlbums(userID string) ([]immich.Album, error) {
 	req, err := g.client.NewRequest("GET", "/api/albums", nil)
 	if err != nil {
@@ -224,6 +233,7 @@ func (g *Generator) getSharedAlbums(userID string) ([]immich.Album, error) {
 
 	// Filter to include only albums shared with the user
 	sharedAlbums := make([]immich.Album, 0)
+
 	for _, album := range allAlbums {
 		// Skip the "All NAME" album itself to avoid recursion
 		if strings.HasPrefix(album.Name, "All ") {
@@ -231,9 +241,11 @@ func (g *Generator) getSharedAlbums(userID string) ([]immich.Album, error) {
 		}
 
 		// Check if the user is in this album
+
 		for _, albumUser := range album.AlbumUsers {
 			if albumUser.User.ID == userID {
 				sharedAlbums = append(sharedAlbums, album)
+
 				break
 			}
 		}
@@ -242,7 +254,7 @@ func (g *Generator) getSharedAlbums(userID string) ([]immich.Album, error) {
 	return sharedAlbums, nil
 }
 
-// getAssetsFromSharedAlbums gets all unique assets from the shared albums
+// getAssetsFromSharedAlbums gets all unique assets from the shared albums.
 func (g *Generator) getAssetsFromSharedAlbums(albums []immich.Album) (map[string]bool, error) {
 	uniqueAssets := make(map[string]bool)
 
@@ -261,7 +273,7 @@ func (g *Generator) getAssetsFromSharedAlbums(albums []immich.Album) (map[string
 	return uniqueAssets, nil
 }
 
-// getAlbumAssets gets all assets in an album
+// getAlbumAssets gets all assets in an album.
 func (g *Generator) getAlbumAssets(albumID string) (map[string]bool, error) {
 	req, err := g.client.NewRequest("GET", fmt.Sprintf("/api/albums/%s?withoutAssets=false", albumID), nil)
 	if err != nil {

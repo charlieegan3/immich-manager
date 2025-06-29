@@ -12,6 +12,7 @@ import (
 )
 
 func TestGenerator_Generate(t *testing.T) {
+	t.Parallel()
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -27,7 +28,8 @@ func TestGenerator_Generate(t *testing.T) {
 				{ID: "2", Name: "work photos", AlbumUsers: []immich.AlbumUser{}},
 				{ID: "3", Name: "vacation memories", AlbumUsers: []immich.AlbumUser{userInAlbum}},
 			}
-			json.NewEncoder(w).Encode(albums)
+			_ = json.NewEncoder(w).Encode(albums)
+
 			return
 		case "/api/users":
 			// Return all users
@@ -35,10 +37,12 @@ func TestGenerator_Generate(t *testing.T) {
 				{ID: "user123", Email: "test@example.com", Name: "Test User"},
 				{ID: "user456", Email: "other@example.com", Name: "Other User"},
 			}
-			json.NewEncoder(w).Encode(users)
+			_ = json.NewEncoder(w).Encode(users)
+
 			return
 		default:
 			w.WriteHeader(http.StatusNotFound)
+
 			return
 		}
 	}))
@@ -67,6 +71,7 @@ func TestGenerator_Generate(t *testing.T) {
 		// Verify apply operation
 		if len(op.Apply) != 1 {
 			t.Errorf("Expected 1 apply request, got %d", len(op.Apply))
+
 			continue
 		}
 
@@ -78,12 +83,14 @@ func TestGenerator_Generate(t *testing.T) {
 		// The split result has an empty string at the beginning
 		if len(pathParts) < 5 {
 			t.Errorf("Invalid path format (too short): %s", applyReq.Path)
+
 			continue
 		}
 
 		// Path should be: ["", "api", "albums", "{id}", "users"]
 		if pathParts[1] != "api" || pathParts[2] != "albums" || pathParts[4] != "users" {
 			t.Errorf("Invalid path format (wrong segments): %s", applyReq.Path)
+
 			continue
 		}
 
@@ -97,12 +104,12 @@ func TestGenerator_Generate(t *testing.T) {
 		}
 
 		// Verify apply method
-		if applyReq.Method != "PUT" {
+		if applyReq.Method != http.MethodPut {
 			t.Errorf("Expected method PUT, got %s", applyReq.Method)
 		}
 
 		// Verify apply body
-		var applyBody map[string]interface{}
+		var applyBody map[string]any
 		if err := json.Unmarshal(applyReq.Body, &applyBody); err != nil {
 			t.Fatalf("Failed to unmarshal body: %v", err)
 		}
@@ -110,12 +117,14 @@ func TestGenerator_Generate(t *testing.T) {
 		albumUsers, ok := applyBody["albumUsers"].([]interface{})
 		if !ok || len(albumUsers) != 1 {
 			t.Errorf("Expected albumUsers array with 1 element, got %v", applyBody["albumUsers"])
+
 			continue
 		}
 
 		user, ok := albumUsers[0].(map[string]interface{})
 		if !ok {
 			t.Errorf("Expected user to be a map, got %v", albumUsers[0])
+
 			continue
 		}
 
@@ -130,6 +139,7 @@ func TestGenerator_Generate(t *testing.T) {
 		// Verify revert operation
 		if len(op.Revert) != 1 {
 			t.Errorf("Expected 1 revert request, got %d", len(op.Revert))
+
 			continue
 		}
 
@@ -142,7 +152,7 @@ func TestGenerator_Generate(t *testing.T) {
 		}
 
 		// Verify revert method
-		if revertReq.Method != "DELETE" {
+		if revertReq.Method != http.MethodDelete {
 			t.Errorf("Expected method DELETE, got %s", revertReq.Method)
 		}
 	}
@@ -156,6 +166,7 @@ func TestGenerator_Generate(t *testing.T) {
 }
 
 func TestGenerator_NoMatchingAlbums(t *testing.T) {
+	t.Parallel()
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -165,17 +176,20 @@ func TestGenerator_NoMatchingAlbums(t *testing.T) {
 				{ID: "1", Name: "work photos", AlbumUsers: []immich.AlbumUser{}},
 				{ID: "2", Name: "family photos", AlbumUsers: []immich.AlbumUser{}},
 			}
-			json.NewEncoder(w).Encode(albums)
+			_ = json.NewEncoder(w).Encode(albums)
+
 			return
 		case "/api/users":
 			// Return a mock user
 			users := []immich.User{
 				{ID: "user123", Email: "test@example.com", Name: "Test User"},
 			}
-			json.NewEncoder(w).Encode(users)
+			_ = json.NewEncoder(w).Encode(users)
+
 			return
 		default:
 			w.WriteHeader(http.StatusNotFound)
+
 			return
 		}
 	}))
@@ -195,6 +209,7 @@ func TestGenerator_NoMatchingAlbums(t *testing.T) {
 }
 
 func TestGenerator_UserNotFound(t *testing.T) {
+	t.Parallel()
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -203,17 +218,20 @@ func TestGenerator_UserNotFound(t *testing.T) {
 			albums := []immich.Album{
 				{ID: "1", Name: "vacation photos", AlbumUsers: []immich.AlbumUser{}},
 			}
-			json.NewEncoder(w).Encode(albums)
+			_ = json.NewEncoder(w).Encode(albums)
+
 			return
 		case "/api/users":
 			// Return users but none with the email we're looking for
 			users := []immich.User{
 				{ID: "user456", Email: "other@example.com", Name: "Other User"},
 			}
-			json.NewEncoder(w).Encode(users)
+			_ = json.NewEncoder(w).Encode(users)
+
 			return
 		default:
 			w.WriteHeader(http.StatusNotFound)
+
 			return
 		}
 	}))
@@ -231,4 +249,3 @@ func TestGenerator_UserNotFound(t *testing.T) {
 		t.Error("Expected error for user not found, got nil")
 	}
 }
-

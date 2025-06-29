@@ -13,6 +13,7 @@ import (
 )
 
 func TestGenerator_Generate(t *testing.T) {
+	t.Parallel()
 	// Set up test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -22,7 +23,8 @@ func TestGenerator_Generate(t *testing.T) {
 				{ID: "user123", Email: "test@example.com", Name: "Test User"},
 				{ID: "user456", Email: "other@example.com", Name: "Other User"},
 			}
-			json.NewEncoder(w).Encode(users)
+			_ = json.NewEncoder(w).Encode(users)
+
 			return
 
 		case "/api/albums":
@@ -77,7 +79,8 @@ func TestGenerator_Generate(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(albums)
+			_ = json.NewEncoder(w).Encode(albums)
+
 			return
 
 		case "/api/albums/album1":
@@ -99,7 +102,8 @@ func TestGenerator_Generate(t *testing.T) {
 					{ID: "asset3"},
 				},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
+
 			return
 
 		case "/api/albums/album2":
@@ -121,7 +125,8 @@ func TestGenerator_Generate(t *testing.T) {
 					{ID: "asset5"},
 				},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
+
 			return
 
 		case "/api/albums/album3":
@@ -142,7 +147,8 @@ func TestGenerator_Generate(t *testing.T) {
 					{ID: "asset7"},
 				},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
+
 			return
 
 		case "/api/albums/smartalbum":
@@ -165,11 +171,13 @@ func TestGenerator_Generate(t *testing.T) {
 					{ID: "asset8"}, // This asset should be removed as it's not in any shared album
 				},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
+
 			return
 
 		default:
 			w.WriteHeader(http.StatusNotFound)
+
 			return
 		}
 	}))
@@ -190,11 +198,13 @@ func TestGenerator_Generate(t *testing.T) {
 }
 
 func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
+	t.Helper()
 	// The plan should have 2 operations:
 	// 1. Add assets 4 and 5 to the smart album
 	// 2. Remove asset 8 from the smart album
 	if len(p.Operations) != 2 {
 		t.Errorf("Expected 2 operations, got %d", len(p.Operations))
+
 		return
 	}
 
@@ -204,11 +214,13 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 	for _, op := range p.Operations {
 		if len(op.Apply) != 1 {
 			t.Errorf("Expected 1 apply request per operation, got %d", len(op.Apply))
+
 			continue
 		}
 
 		if len(op.Revert) != 1 {
 			t.Errorf("Expected 1 revert request per operation, got %d", len(op.Revert))
+
 			continue
 		}
 
@@ -216,11 +228,11 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 		revertReq := op.Revert[0]
 
 		// Check add assets operation
-		if applyReq.Method == "PUT" && applyReq.Path == "/api/albums/smartalbum/assets" {
+		if applyReq.Method == http.MethodPut && applyReq.Path == "/api/albums/smartalbum/assets" {
 			foundAddOperation = true
 
 			// Verify it's adding the correct assets
-			var addBody map[string]interface{}
+			var addBody map[string]any
 			if err := json.Unmarshal(applyReq.Body, &addBody); err != nil {
 				t.Fatalf("Failed to unmarshal add body: %v", err)
 			}
@@ -228,11 +240,13 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 			assetIDs, ok := addBody["ids"].([]interface{})
 			if !ok {
 				t.Errorf("Expected ids to be an array, got %T", addBody["ids"])
+
 				continue
 			}
 
 			// Convert to a map for easier lookup
 			addAssetMap := make(map[string]bool)
+
 			for _, id := range assetIDs {
 				if idStr, ok := id.(string); ok {
 					addAssetMap[idStr] = true
@@ -246,17 +260,17 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 			}
 
 			// Verify revert operation removes the same assets
-			if revertReq.Method != "DELETE" || revertReq.Path != "/api/albums/smartalbum/assets" {
+			if revertReq.Method != http.MethodDelete || revertReq.Path != "/api/albums/smartalbum/assets" {
 				t.Errorf("Expected revert to be DELETE on the same path, got %s %s", revertReq.Method, revertReq.Path)
 			}
 		}
 
 		// Check remove assets operation
-		if applyReq.Method == "DELETE" && applyReq.Path == "/api/albums/smartalbum/assets" {
+		if applyReq.Method == http.MethodDelete && applyReq.Path == "/api/albums/smartalbum/assets" {
 			foundRemoveOperation = true
 
 			// Verify it's removing the correct assets
-			var removeBody map[string]interface{}
+			var removeBody map[string]any
 			if err := json.Unmarshal(applyReq.Body, &removeBody); err != nil {
 				t.Fatalf("Failed to unmarshal remove body: %v", err)
 			}
@@ -264,11 +278,13 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 			assetIDs, ok := removeBody["ids"].([]interface{})
 			if !ok {
 				t.Errorf("Expected ids to be an array, got %T", removeBody["ids"])
+
 				continue
 			}
 
 			// Convert to a map for easier lookup
 			removeAssetMap := make(map[string]bool)
+
 			for _, id := range assetIDs {
 				if idStr, ok := id.(string); ok {
 					removeAssetMap[idStr] = true
@@ -282,7 +298,7 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 			}
 
 			// Verify revert operation adds the same assets back
-			if revertReq.Method != "PUT" || revertReq.Path != "/api/albums/smartalbum/assets" {
+			if revertReq.Method != http.MethodPut || revertReq.Path != "/api/albums/smartalbum/assets" {
 				t.Errorf("Expected revert to be PUT on the same path, got %s %s", revertReq.Method, revertReq.Path)
 			}
 		}
@@ -298,18 +314,20 @@ func verifySmartAlbumPlan(t *testing.T, p *plan.Plan) {
 }
 
 func TestGenerator_ErrorWhenAlbumDoesNotExist(t *testing.T) {
+	t.Parallel()
 	// Set up test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/users":
+		switch r.URL.Path {
+		case "/api/users":
 			// Return mock users
 			users := []immich.User{
 				{ID: "user123", Email: "test@example.com", Name: "Test User"},
 			}
-			json.NewEncoder(w).Encode(users)
+			_ = json.NewEncoder(w).Encode(users)
+
 			return
 
-		case r.URL.Path == "/api/albums":
+		case "/api/albums":
 			// Return albums without the smart album
 			albums := []immich.Album{
 				{
@@ -337,11 +355,13 @@ func TestGenerator_ErrorWhenAlbumDoesNotExist(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(albums)
+			_ = json.NewEncoder(w).Encode(albums)
+
 			return
 
 		default:
 			w.WriteHeader(http.StatusNotFound)
+
 			return
 		}
 	}))

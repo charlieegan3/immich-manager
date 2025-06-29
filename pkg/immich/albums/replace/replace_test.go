@@ -10,6 +10,7 @@ import (
 )
 
 func TestGenerator_Generate(t *testing.T) {
+	t.Parallel()
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/albums" {
@@ -18,9 +19,11 @@ func TestGenerator_Generate(t *testing.T) {
 				{ID: "2", Name: "bar album"},
 				{ID: "3", Name: "foo bar album"},
 			}
-			json.NewEncoder(w).Encode(albums)
+			_ = json.NewEncoder(w).Encode(albums)
+
 			return
 		}
+
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
@@ -42,16 +45,18 @@ func TestGenerator_Generate(t *testing.T) {
 
 	// Verify first operation
 	op1 := p.Operations[0]
-	
+
 	// Verify apply operations
 	if len(op1.Apply) != 1 {
 		t.Errorf("Expected 1 apply request, got %d", len(op1.Apply))
 	} else {
 		applyReq := op1.Apply[0]
+
 		if applyReq.Path != "/api/albums/1" {
 			t.Errorf("Expected path /api/albums/1, got %s", applyReq.Path)
 		}
-		if applyReq.Method != "PATCH" {
+
+		if applyReq.Method != http.MethodPatch {
 			t.Errorf("Expected method PATCH, got %s", applyReq.Method)
 		}
 
@@ -59,6 +64,7 @@ func TestGenerator_Generate(t *testing.T) {
 		if err := json.Unmarshal(applyReq.Body, &body1); err != nil {
 			t.Fatalf("Failed to unmarshal body: %v", err)
 		}
+
 		if body1["albumName"] != "baz album" {
 			t.Errorf("Expected albumName 'baz album', got %s", body1["albumName"])
 		}
@@ -69,10 +75,12 @@ func TestGenerator_Generate(t *testing.T) {
 		t.Errorf("Expected 1 revert request, got %d", len(op1.Revert))
 	} else {
 		revertReq := op1.Revert[0]
+
 		if revertReq.Path != "/api/albums/1" {
 			t.Errorf("Expected revert path /api/albums/1, got %s", revertReq.Path)
 		}
-		if revertReq.Method != "PATCH" {
+
+		if revertReq.Method != http.MethodPatch {
 			t.Errorf("Expected revert method PATCH, got %s", revertReq.Method)
 		}
 
@@ -80,6 +88,7 @@ func TestGenerator_Generate(t *testing.T) {
 		if err := json.Unmarshal(revertReq.Body, &revertBody1); err != nil {
 			t.Fatalf("Failed to unmarshal revert body: %v", err)
 		}
+
 		if revertBody1["albumName"] != "foo album" {
 			t.Errorf("Expected revert albumName 'foo album', got %s", revertBody1["albumName"])
 		}
@@ -87,7 +96,7 @@ func TestGenerator_Generate(t *testing.T) {
 
 	// Verify second operation
 	op2 := p.Operations[1]
-	
+
 	// Verify apply operations
 	if len(op2.Apply) != 1 {
 		t.Errorf("Expected 1 apply request, got %d", len(op2.Apply))
@@ -96,7 +105,8 @@ func TestGenerator_Generate(t *testing.T) {
 		if applyReq.Path != "/api/albums/3" {
 			t.Errorf("Expected path /api/albums/3, got %s", applyReq.Path)
 		}
-		if applyReq.Method != "PATCH" {
+
+		if applyReq.Method != http.MethodPatch {
 			t.Errorf("Expected method PATCH, got %s", applyReq.Method)
 		}
 
@@ -104,6 +114,7 @@ func TestGenerator_Generate(t *testing.T) {
 		if err := json.Unmarshal(applyReq.Body, &body2); err != nil {
 			t.Fatalf("Failed to unmarshal body: %v", err)
 		}
+
 		if body2["albumName"] != "baz bar album" {
 			t.Errorf("Expected albumName 'baz bar album', got %s", body2["albumName"])
 		}
@@ -117,7 +128,8 @@ func TestGenerator_Generate(t *testing.T) {
 		if revertReq.Path != "/api/albums/3" {
 			t.Errorf("Expected revert path /api/albums/3, got %s", revertReq.Path)
 		}
-		if revertReq.Method != "PATCH" {
+
+		if revertReq.Method != http.MethodPatch {
 			t.Errorf("Expected revert method PATCH, got %s", revertReq.Method)
 		}
 
@@ -125,6 +137,7 @@ func TestGenerator_Generate(t *testing.T) {
 		if err := json.Unmarshal(revertReq.Body, &revertBody2); err != nil {
 			t.Fatalf("Failed to unmarshal revert body: %v", err)
 		}
+
 		if revertBody2["albumName"] != "foo bar album" {
 			t.Errorf("Expected revert albumName 'foo bar album', got %s", revertBody2["albumName"])
 		}

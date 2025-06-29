@@ -13,7 +13,17 @@ import (
 	"immich-manager/pkg/plan"
 )
 
+func mustMarshal(v any) json.RawMessage {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	return data
+}
+
 func TestApplier_ApplyAndRevert(t *testing.T) {
+	t.Parallel()
 	// Create mock state to track album names
 	albumState := map[string]string{
 		"1": "old name 1",
@@ -30,12 +40,14 @@ func TestApplier_ApplyAndRevert(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("Failed to decode request body: %v", err)
 			w.WriteHeader(http.StatusBadRequest)
+
 			return
 		}
 
 		if body["albumName"] == "" {
 			t.Error("Expected albumName in request body")
 			w.WriteHeader(http.StatusBadRequest)
+
 			return
 		}
 
@@ -53,14 +65,14 @@ func TestApplier_ApplyAndRevert(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "new name 1"}`),
 					},
 				},
 				Revert: []plan.Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
 					},
 				},
@@ -69,14 +81,14 @@ func TestApplier_ApplyAndRevert(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/2",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "new name 2"}`),
 					},
 				},
 				Revert: []plan.Request{
 					{
 						Path:   "/api/albums/2",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "old name 2"}`),
 					},
 				},
@@ -89,39 +101,38 @@ func TestApplier_ApplyAndRevert(t *testing.T) {
 	applier := NewApplier(client)
 
 	// Test Apply
-	t.Run("Apply", func(t *testing.T) {
-		if err := applier.Apply(p, nil); err != nil {
-			t.Fatalf("Apply() error = %v", err)
-		}
+	if err := applier.Apply(p, nil); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
 
-		// Verify final state after apply
-		if albumState["1"] != "new name 1" {
-			t.Errorf("Expected album 1 name to be 'new name 1', got %s", albumState["1"])
-		}
-		if albumState["2"] != "new name 2" {
-			t.Errorf("Expected album 2 name to be 'new name 2', got %s", albumState["2"])
-		}
-	})
+	// Verify final state after apply
+	if albumState["1"] != "new name 1" {
+		t.Errorf("Expected album 1 name to be 'new name 1', got %s", albumState["1"])
+	}
+
+	if albumState["2"] != "new name 2" {
+		t.Errorf("Expected album 2 name to be 'new name 2', got %s", albumState["2"])
+	}
 
 	// Test Revert
-	t.Run("Revert", func(t *testing.T) {
-		if err := applier.Revert(p, nil); err != nil {
-			t.Fatalf("Revert() error = %v", err)
-		}
+	if err := applier.Revert(p, nil); err != nil {
+		t.Fatalf("Revert() error = %v", err)
+	}
 
-		// Verify final state after revert
-		if albumState["1"] != "old name 1" {
-			t.Errorf("Expected album 1 name to be 'old name 1', got %s", albumState["1"])
-		}
-		if albumState["2"] != "old name 2" {
-			t.Errorf("Expected album 2 name to be 'old name 2', got %s", albumState["2"])
-		}
-	})
+	// Verify final state after revert
+	if albumState["1"] != "old name 1" {
+		t.Errorf("Expected album 1 name to be 'old name 1', got %s", albumState["1"])
+	}
+
+	if albumState["2"] != "old name 2" {
+		t.Errorf("Expected album 2 name to be 'old name 2', got %s", albumState["2"])
+	}
 }
 
 func TestApplier_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	// Create test server that returns errors
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
@@ -133,14 +144,14 @@ func TestApplier_ErrorHandling(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"invalid": "json"`), // Invalid JSON
 					},
 				},
 				Revert: []plan.Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
 					},
 				},
@@ -153,23 +164,21 @@ func TestApplier_ErrorHandling(t *testing.T) {
 	applier := NewApplier(client)
 
 	// Test Apply error
-	t.Run("Apply Error", func(t *testing.T) {
-		err := applier.Apply(p, nil)
-		if err == nil {
-			t.Error("Expected error from Apply(), got nil")
-		}
-	})
+	err := applier.Apply(p, nil)
+	if err == nil {
+		t.Error("Expected error from Apply(), got nil")
+	}
 
 	// Test Revert error
-	t.Run("Revert Error", func(t *testing.T) {
-		err := applier.Revert(p, nil)
-		if err == nil {
-			t.Error("Expected error from Revert(), got nil")
-		}
-	})
+	err = applier.Revert(p, nil)
+	if err == nil {
+		t.Error("Expected error from Revert(), got nil")
+	}
 }
 
-func TestDryRunApply(t *testing.T) {
+// setupDryRunTest creates a test plan and mock server for dry run tests.
+func setupDryRunTest(t *testing.T) (*plan.Plan, *Applier) {
+	t.Helper()
 	// Create test plan
 	p := &plan.Plan{
 		Operations: []plan.Operation{
@@ -177,14 +186,14 @@ func TestDryRunApply(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "new name 1"}`),
 					},
 				},
 				Revert: []plan.Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
 					},
 				},
@@ -193,15 +202,22 @@ func TestDryRunApply(t *testing.T) {
 	}
 
 	// Create a mock server that should NOT be called
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		t.Error("Server was called during a dry run")
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	// Create client and applier
 	client := immich.NewClient(server.URL, "test-token")
 	applier := NewApplier(client)
+
+	return p, applier
+}
+
+func TestDryRunApply(t *testing.T) {
+	t.Parallel()
+	p, applier := setupDryRunTest(t)
 
 	// Test dry run apply
 	var buf bytes.Buffer
@@ -238,38 +254,8 @@ func TestDryRunApply(t *testing.T) {
 }
 
 func TestDryRunRevert(t *testing.T) {
-	// Create test plan
-	p := &plan.Plan{
-		Operations: []plan.Operation{
-			{
-				Apply: []plan.Request{
-					{
-						Path:   "/api/albums/1",
-						Method: "PATCH",
-						Body:   json.RawMessage(`{"albumName": "new name 1"}`),
-					},
-				},
-				Revert: []plan.Request{
-					{
-						Path:   "/api/albums/1",
-						Method: "PATCH",
-						Body:   json.RawMessage(`{"albumName": "old name 1"}`),
-					},
-				},
-			},
-		},
-	}
-
-	// Create a mock server that should NOT be called
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("Server was called during a dry run")
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	// Create client and applier
-	client := immich.NewClient(server.URL, "test-token")
-	applier := NewApplier(client)
+	t.Parallel()
+	p, applier := setupDryRunTest(t)
 
 	// Test dry run revert
 	var buf bytes.Buffer
@@ -306,19 +292,21 @@ func TestDryRunRevert(t *testing.T) {
 }
 
 func TestNilBodyRequest(t *testing.T) {
+	t.Parallel()
 	// Track if the Content-Type header was set
 	var contentTypeWasSet bool
+
 	var bodyWasEmpty bool
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check for Content-Type header
 		contentTypeWasSet = r.Header.Get("Content-Type") != ""
-		
+
 		// Check if the body is empty
 		body, _ := io.ReadAll(r.Body)
 		bodyWasEmpty = len(body) == 0
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -330,14 +318,14 @@ func TestNilBodyRequest(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/1/user/123",
-						Method: "DELETE",
+						Method: http.MethodDelete,
 						// No Body field
 					},
 				},
 				Revert: []plan.Request{
 					{
 						Path:   "/api/albums/1/users",
-						Method: "PUT",
+						Method: http.MethodPut,
 						Body:   json.RawMessage(`{"albumUsers": [{"role": "viewer", "userId": "123"}]}`),
 					},
 				},
@@ -358,38 +346,41 @@ func TestNilBodyRequest(t *testing.T) {
 	if contentTypeWasSet {
 		t.Error("Content-Type header was set for request without body field")
 	}
-	
+
 	if !bodyWasEmpty {
 		t.Error("Request body was not empty for request without body field")
 	}
 }
 
 func TestDeleteRequestWithBody(t *testing.T) {
+	t.Parallel()
 	// Track request details
 	var receivedMethod string
-	var receivedBody map[string]interface{}
+
+	var receivedBody map[string]any
+
 	var contentTypeWasSet bool
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedMethod = r.Method
 		contentTypeWasSet = r.Header.Get("Content-Type") == "application/json"
-		
+
 		// Read and parse the body
 		body, _ := io.ReadAll(r.Body)
 		if len(body) > 0 {
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	// Test DELETE request with body
-	testBody := map[string]interface{}{
+	testBody := map[string]any{
 		"ids": []string{"asset-id-1", "asset-id-2"},
 	}
-	testBodyJSON, _ := json.Marshal(testBody)
+	testBodyJSON := mustMarshal(testBody)
 
 	// Create test plan with DELETE request that has a body
 	p := &plan.Plan{
@@ -398,7 +389,7 @@ func TestDeleteRequestWithBody(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/test-album-id/assets",
-						Method: "DELETE",
+						Method: http.MethodDelete,
 						Body:   testBodyJSON,
 					},
 				},
@@ -409,7 +400,7 @@ func TestDeleteRequestWithBody(t *testing.T) {
 	// Create applier and apply plan
 	client := immich.NewClient(server.URL, "test-token")
 	applier := NewApplier(client)
-	
+
 	opts := &ApplyOptions{
 		DryRun: false,
 		Writer: io.Discard,
@@ -421,7 +412,7 @@ func TestDeleteRequestWithBody(t *testing.T) {
 	}
 
 	// Verify the request was sent correctly
-	if receivedMethod != "DELETE" {
+	if receivedMethod != http.MethodDelete {
 		t.Errorf("Expected DELETE method, got %s", receivedMethod)
 	}
 
@@ -449,20 +440,23 @@ func TestDeleteRequestWithBody(t *testing.T) {
 }
 
 func TestDeleteRequestWithoutBody(t *testing.T) {
+	t.Parallel()
 	// Track request details
 	var receivedMethod string
+
 	var bodyWasEmpty bool
+
 	var contentTypeWasSet bool
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedMethod = r.Method
 		contentTypeWasSet = r.Header.Get("Content-Type") != ""
-		
+
 		// Check if the body is empty
 		body, _ := io.ReadAll(r.Body)
 		bodyWasEmpty = len(body) == 0
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -474,7 +468,7 @@ func TestDeleteRequestWithoutBody(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/test-album-id/user/123",
-						Method: "DELETE",
+						Method: http.MethodDelete,
 						// No Body field
 					},
 				},
@@ -485,7 +479,7 @@ func TestDeleteRequestWithoutBody(t *testing.T) {
 	// Create applier and apply plan
 	client := immich.NewClient(server.URL, "test-token")
 	applier := NewApplier(client)
-	
+
 	opts := &ApplyOptions{
 		DryRun: false,
 		Writer: io.Discard,
@@ -497,7 +491,7 @@ func TestDeleteRequestWithoutBody(t *testing.T) {
 	}
 
 	// Verify the request was sent correctly
-	if receivedMethod != "DELETE" {
+	if receivedMethod != http.MethodDelete {
 		t.Errorf("Expected DELETE method, got %s", receivedMethod)
 	}
 
@@ -511,26 +505,29 @@ func TestDeleteRequestWithoutBody(t *testing.T) {
 }
 
 func TestDeleteRequestWithNilBody(t *testing.T) {
+	t.Parallel()
 	// Track request details
 	var receivedMethod string
+
 	var bodyWasEmpty bool
+
 	var contentTypeWasSet bool
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedMethod = r.Method
 		contentTypeWasSet = r.Header.Get("Content-Type") != ""
-		
+
 		// Check if the body is empty
 		body, _ := io.ReadAll(r.Body)
 		bodyWasEmpty = len(body) == 0
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	// Test with nil body (explicit)
-	nilBodyJSON, _ := json.Marshal(nil)
+	nilBodyJSON := mustMarshal(nil)
 
 	// Create test plan with DELETE request with explicit nil body
 	p := &plan.Plan{
@@ -539,7 +536,7 @@ func TestDeleteRequestWithNilBody(t *testing.T) {
 				Apply: []plan.Request{
 					{
 						Path:   "/api/albums/test-album-id/user/123",
-						Method: "DELETE",
+						Method: http.MethodDelete,
 						Body:   nilBodyJSON,
 					},
 				},
@@ -550,7 +547,7 @@ func TestDeleteRequestWithNilBody(t *testing.T) {
 	// Create applier and apply plan
 	client := immich.NewClient(server.URL, "test-token")
 	applier := NewApplier(client)
-	
+
 	opts := &ApplyOptions{
 		DryRun: false,
 		Writer: io.Discard,
@@ -562,7 +559,7 @@ func TestDeleteRequestWithNilBody(t *testing.T) {
 	}
 
 	// Verify the request was sent correctly
-	if receivedMethod != "DELETE" {
+	if receivedMethod != http.MethodDelete {
 		t.Errorf("Expected DELETE method, got %s", receivedMethod)
 	}
 

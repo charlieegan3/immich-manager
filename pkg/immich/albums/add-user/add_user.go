@@ -2,6 +2,7 @@ package adduser
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,14 +10,14 @@ import (
 	"immich-manager/pkg/plan"
 )
 
-// Generator generates a plan for adding a user to albums matching a search term
+// Generator generates a plan for adding a user to albums matching a search term.
 type Generator struct {
 	client     *immich.Client
 	searchTerm string
 	email      string
 }
 
-// NewGenerator creates a new plan generator for adding a user to albums
+// NewGenerator creates a new plan generator for adding a user to albums.
 func NewGenerator(client *immich.Client, searchTerm, email string) *Generator {
 	return &Generator{
 		client:     client,
@@ -25,7 +26,7 @@ func NewGenerator(client *immich.Client, searchTerm, email string) *Generator {
 	}
 }
 
-// Generate creates a plan for adding a user to albums matching the search term
+// Generate creates a plan for adding a user to albums matching the search term.
 func (g *Generator) Generate() (*plan.Plan, error) {
 	// Get all albums
 	req, err := g.client.NewRequest("GET", "/api/albums", nil)
@@ -40,6 +41,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Filter albums by search term
 	filteredAlbums := make([]immich.Album, 0)
+
 	for _, album := range albums {
 		if searchContains(album.Name, g.searchTerm) {
 			filteredAlbums = append(filteredAlbums, album)
@@ -63,9 +65,11 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 
 	// Find user with matching email
 	var targetUser *immich.User
+
 	for i, user := range users {
 		if strings.EqualFold(user.Email, g.email) {
 			targetUser = &users[i]
+
 			break
 		}
 	}
@@ -82,9 +86,11 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	for _, album := range filteredAlbums {
 		// Check if user is already in the album
 		userAlreadyInAlbum := false
+
 		for _, albumUser := range album.AlbumUsers {
 			if albumUser.User.ID == targetUser.ID {
 				userAlreadyInAlbum = true
+
 				break
 			}
 		}
@@ -94,7 +100,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 		}
 
 		// Add user to album request
-		addUserBody := map[string]interface{}{
+		addUserBody := map[string]any{
 			"albumUsers": []map[string]string{
 				{
 					"role":   "viewer",
@@ -102,6 +108,7 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 				},
 			},
 		}
+
 		addUserBodyJSON, err := json.Marshal(addUserBody)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling add user body: %w", err)
@@ -129,17 +136,17 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 	}
 
 	if len(p.Operations) == 0 {
-		return nil, fmt.Errorf("no changes needed - user is already in all matching albums")
+		return nil, errors.New("no changes needed - user is already in all matching albums")
 	}
 
 	return p, nil
 }
 
 // searchContains checks if the target string contains the search term
-// (case-insensitive substring search)
+// (case-insensitive substring search).
 func searchContains(target, search string) bool {
 	targetLower := strings.ToLower(target)
 	searchLower := strings.ToLower(search)
+
 	return strings.Contains(targetLower, searchLower)
 }
-

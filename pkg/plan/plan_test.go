@@ -3,10 +3,12 @@ package plan
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"testing"
 )
 
 func TestPlan_Save_Load(t *testing.T) {
+	t.Parallel()
 	// Create test plan
 	p := &Plan{
 		Operations: []Operation{
@@ -14,14 +16,14 @@ func TestPlan_Save_Load(t *testing.T) {
 				Apply: []Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "new name"}`),
 					},
 				},
 				Revert: []Request{
 					{
 						Path:   "/api/albums/1",
-						Method: "PATCH",
+						Method: http.MethodPatch,
 						Body:   json.RawMessage(`{"albumName": "old name"}`),
 					},
 				},
@@ -33,6 +35,7 @@ func TestPlan_Save_Load(t *testing.T) {
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetIndent("", "  ")
+
 	if err := encoder.Encode(p); err != nil {
 		t.Fatalf("Failed to encode plan: %v", err)
 	}
@@ -58,7 +61,8 @@ func TestPlan_Save_Load(t *testing.T) {
 		if applyReq.Path != "/api/albums/1" {
 			t.Errorf("Expected apply path /api/albums/1, got %s", applyReq.Path)
 		}
-		if applyReq.Method != "PATCH" {
+
+		if applyReq.Method != http.MethodPatch {
 			t.Errorf("Expected apply method PATCH, got %s", applyReq.Method)
 		}
 
@@ -66,6 +70,7 @@ func TestPlan_Save_Load(t *testing.T) {
 		if err := json.Unmarshal(applyReq.Body, &applyBody); err != nil {
 			t.Fatalf("Failed to unmarshal apply body: %v", err)
 		}
+
 		if applyBody["albumName"] != "new name" {
 			t.Errorf("Expected apply albumName 'new name', got %s", applyBody["albumName"])
 		}
@@ -79,7 +84,8 @@ func TestPlan_Save_Load(t *testing.T) {
 		if revertReq.Path != "/api/albums/1" {
 			t.Errorf("Expected revert path /api/albums/1, got %s", revertReq.Path)
 		}
-		if revertReq.Method != "PATCH" {
+
+		if revertReq.Method != http.MethodPatch {
 			t.Errorf("Expected revert method PATCH, got %s", revertReq.Method)
 		}
 
@@ -87,6 +93,7 @@ func TestPlan_Save_Load(t *testing.T) {
 		if err := json.Unmarshal(revertReq.Body, &revertBody); err != nil {
 			t.Fatalf("Failed to unmarshal revert body: %v", err)
 		}
+
 		if revertBody["albumName"] != "old name" {
 			t.Errorf("Expected revert albumName 'old name', got %s", revertBody["albumName"])
 		}

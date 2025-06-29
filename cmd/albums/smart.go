@@ -2,6 +2,7 @@ package albums
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -14,17 +15,17 @@ var SmartCmd = &cobra.Command{
 	Use:   "smart [email]",
 	Short: "Generate a plan to create/maintain a smart album with all assets from albums shared with a user",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		email := args[0]
 
 		token := os.Getenv("IMMICH_TOKEN")
 		if token == "" {
-			return fmt.Errorf("IMMICH_TOKEN environment variable is required")
+			return errors.New("IMMICH_TOKEN environment variable is required")
 		}
 
 		server := os.Getenv("IMMICH_SERVER")
 		if server == "" {
-			return fmt.Errorf("IMMICH_SERVER environment variable is required")
+			return errors.New("IMMICH_SERVER environment variable is required")
 		}
 
 		client := immich.NewClient(server, token)
