@@ -14,6 +14,7 @@ func init() {
 	planCmd.AddCommand(albumsCmd)
 	albumsCmd.AddCommand(albums.ReplaceCmd)
 	albumsCmd.AddCommand(albums.AddUserCmd)
+	albumsCmd.AddCommand(albums.AddPersonCmd)
 	albumsCmd.AddCommand(albums.ClearSharedCmd)
 	albumsCmd.AddCommand(albums.SmartCmd)
 }

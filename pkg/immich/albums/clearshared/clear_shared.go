@@ -4,6 +4,7 @@ package clearshared
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"immich-manager/pkg/immich"
@@ -144,14 +145,14 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 			Apply: []plan.Request{
 				{
 					Path:   fmt.Sprintf("/api/albums/%s/user/%s", album.ID, targetUserID),
-					Method: "DELETE",
+					Method: http.MethodDelete,
 					// Explicitly set no body for DELETE request
 				},
 			},
 			Revert: []plan.Request{
 				{
 					Path:   fmt.Sprintf("/api/albums/%s/users", album.ID),
-					Method: "PUT",
+					Method: http.MethodPut,
 					Body:   revertBodyJSON,
 				},
 			},

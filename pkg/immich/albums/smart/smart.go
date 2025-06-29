@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"immich-manager/pkg/immich"
@@ -106,14 +107,14 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 			Apply: []plan.Request{
 				{
 					Path:   fmt.Sprintf("/api/albums/%s/assets", smartAlbum.ID),
-					Method: "DELETE",
+					Method: http.MethodDelete,
 					Body:   removeBodyJSON,
 				},
 			},
 			Revert: []plan.Request{
 				{
 					Path:   fmt.Sprintf("/api/albums/%s/assets", smartAlbum.ID),
-					Method: "PUT",
+					Method: http.MethodPut,
 					Body:   addRemovedBodyJSON,
 				},
 			},
@@ -154,14 +155,14 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 			Apply: []plan.Request{
 				{
 					Path:   fmt.Sprintf("/api/albums/%s/assets", smartAlbum.ID),
-					Method: "PUT",
+					Method: http.MethodPut,
 					Body:   addBodyJSON,
 				},
 			},
 			Revert: []plan.Request{
 				{
 					Path:   fmt.Sprintf("/api/albums/%s/assets", smartAlbum.ID),
-					Method: "DELETE",
+					Method: http.MethodDelete,
 					Body:   removeAddedBodyJSON,
 				},
 			},

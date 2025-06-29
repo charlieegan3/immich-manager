@@ -4,6 +4,7 @@ package replace
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"immich-manager/pkg/immich"
@@ -78,14 +79,14 @@ func (g *Generator) Generate() (*plan.Plan, error) {
 			Apply: []plan.Request{
 				{
 					Path:   "/api/albums/" + album.ID,
-					Method: "PATCH",
+					Method: http.MethodPatch,
 					Body:   jsonBody,
 				},
 			},
 			Revert: []plan.Request{
 				{
 					Path:   "/api/albums/" + album.ID,
-					Method: "PATCH",
+					Method: http.MethodPatch,
 					Body:   revertJSONBody,
 				},
 			},
