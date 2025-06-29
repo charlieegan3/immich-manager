@@ -119,3 +119,7 @@ The smart album will:
 - Add assets from any album shared with the user
 - Remove assets that are no longer in shared albums
 - Skip albums that start with "All " to avoid recursion
+
+---
+
+*This project was generated using [Claude Code](https://claude.ai/code) as part of a trial of AI coding tools.*
