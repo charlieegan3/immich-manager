@@ -1,3 +1,4 @@
+// Package types provides Immich API data types.
 package types
 
 // User represents an Immich user.

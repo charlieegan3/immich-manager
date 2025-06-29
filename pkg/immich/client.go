@@ -1,3 +1,4 @@
+// Package immich provides a client for interacting with the Immich API.
 package immich
 
 import (
@@ -99,12 +100,16 @@ func (c *Client) Do(req *http.Request, v any) error {
 	if err != nil {
 		return fmt.Errorf("performing request: %w", err)
 	}
-	defer resp.Body.Close()
 
 	// Read the entire response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("reading response body: %w", err)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		return fmt.Errorf("closing response body: %w", err)
 	}
 
 	// Check for error status codes

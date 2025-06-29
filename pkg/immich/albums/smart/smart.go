@@ -1,3 +1,4 @@
+// Package smart provides functionality for creating smart albums in Immich.
 package smart
 
 import (

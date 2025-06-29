@@ -1,3 +1,4 @@
+// Package plan provides functionality for creating and managing execution plans.
 package plan
 
 import (
@@ -37,11 +38,11 @@ type Applier interface {
 
 // Save writes a plan to a file.
 func (p *Plan) Save(path string) error {
+	//nolint: gosec
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating plan file: %w", err)
 	}
-	defer f.Close()
 
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
@@ -50,18 +51,33 @@ func (p *Plan) Save(path string) error {
 		return fmt.Errorf("encoding plan: %w", err)
 	}
 
+	err = f.Close()
+	if err != nil {
+		return fmt.Errorf("closing plan file: %w", err)
+	}
+
 	return nil
 }
 
 // Load reads a plan from a file.
 func Load(path string) (*Plan, error) {
+	//nolint: gosec
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening plan file: %w", err)
 	}
-	defer f.Close()
 
-	return LoadFromReader(f)
+	plan, err := LoadFromReader(f)
+	if err != nil {
+		return nil, fmt.Errorf("loading plan from reader: %w", err)
+	}
+
+	err = f.Close()
+	if err != nil {
+		return nil, fmt.Errorf("closing plan file: %w", err)
+	}
+
+	return plan, nil
 }
 
 // LoadFromReader reads a plan from an io.Reader.

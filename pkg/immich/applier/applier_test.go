@@ -434,7 +434,10 @@ func TestDeleteRequestWithBody(t *testing.T) {
 		t.Errorf("Expected 2 asset IDs, got %d", len(ids))
 	}
 
-	if ids[0].(string) != "asset-id-1" || ids[1].(string) != "asset-id-2" {
+	id0, ok0 := ids[0].(string)
+	id1, ok1 := ids[1].(string)
+
+	if !ok0 || !ok1 || id0 != "asset-id-1" || id1 != "asset-id-2" {
 		t.Errorf("Asset IDs don't match: got %v", ids)
 	}
 }

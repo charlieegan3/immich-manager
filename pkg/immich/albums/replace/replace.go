@@ -1,3 +1,4 @@
+// Package replace provides functionality to replace albums in Immich.
 package replace
 
 import (

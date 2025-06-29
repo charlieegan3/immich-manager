@@ -1,3 +1,4 @@
+// Package applier provides functionality to apply plans to the Immich API.
 package applier
 
 import (
@@ -104,14 +105,20 @@ func (*Applier) dryRunApply(p *plan.Plan, w io.Writer) error {
 		totalRequests += len(op.Apply)
 	}
 
-	fmt.Fprintf(w, "Dry run mode: would execute %d operations with %d total requests\n",
-		len(p.Operations), totalRequests)
+	if _, err := fmt.Fprintf(w, "Dry run mode: would execute %d operations with %d total requests\n",
+		len(p.Operations), totalRequests); err != nil {
+		return fmt.Errorf("writing dry run summary: %w", err)
+	}
 
 	for i, op := range p.Operations {
-		fmt.Fprintf(w, "Operation %d: %d requests\n", i+1, len(op.Apply))
+		if _, err := fmt.Fprintf(w, "Operation %d: %d requests\n", i+1, len(op.Apply)); err != nil {
+			return fmt.Errorf("writing operation summary: %w", err)
+		}
 
 		for j, req := range op.Apply {
-			fmt.Fprintf(w, "  Request %d.%d: %s %s\n", i+1, j+1, req.Method, req.Path)
+			if _, err := fmt.Fprintf(w, "  Request %d.%d: %s %s\n", i+1, j+1, req.Method, req.Path); err != nil {
+				return fmt.Errorf("writing request summary: %w", err)
+			}
 
 			if req.Body != nil {
 				bodyJSON, err := json.MarshalIndent(req.Body, "    ", "  ")
@@ -119,7 +126,9 @@ func (*Applier) dryRunApply(p *plan.Plan, w io.Writer) error {
 					return fmt.Errorf("marshaling body for operation %d request %d: %w", i, j, err)
 				}
 
-				fmt.Fprintf(w, "    Body: %s\n", bodyJSON)
+				if _, err := fmt.Fprintf(w, "    Body: %s\n", bodyJSON); err != nil {
+					return fmt.Errorf("writing request body: %w", err)
+				}
 			}
 		}
 	}
@@ -139,19 +148,25 @@ func (*Applier) dryRunRevert(p *plan.Plan, w io.Writer) error {
 		totalRequests += len(op.Revert)
 	}
 
-	fmt.Fprintf(w, "Dry run mode: would revert %d operations with %d total requests\n",
-		len(p.Operations), totalRequests)
+	if _, err := fmt.Fprintf(w, "Dry run mode: would revert %d operations with %d total requests\n",
+		len(p.Operations), totalRequests); err != nil {
+		return fmt.Errorf("writing dry run revert summary: %w", err)
+	}
 
 	// Operations are processed in reverse order for revert
 	for i := len(p.Operations) - 1; i >= 0; i-- {
 		op := p.Operations[i]
 		opNumber := len(p.Operations) - i
 
-		fmt.Fprintf(w, "Operation %d: %d requests\n", opNumber, len(op.Revert))
+		if _, err := fmt.Fprintf(w, "Operation %d: %d requests\n", opNumber, len(op.Revert)); err != nil {
+			return fmt.Errorf("writing revert operation summary: %w", err)
+		}
 
 		// Requests within an operation are processed in original order
 		for j, req := range op.Revert {
-			fmt.Fprintf(w, "  Request %d.%d: %s %s\n", opNumber, j+1, req.Method, req.Path)
+			if _, err := fmt.Fprintf(w, "  Request %d.%d: %s %s\n", opNumber, j+1, req.Method, req.Path); err != nil {
+				return fmt.Errorf("writing revert request summary: %w", err)
+			}
 
 			if req.Body != nil {
 				bodyJSON, err := json.MarshalIndent(req.Body, "    ", "  ")
@@ -159,7 +174,9 @@ func (*Applier) dryRunRevert(p *plan.Plan, w io.Writer) error {
 					return fmt.Errorf("marshaling body for revert operation %d request %d: %w", i, j, err)
 				}
 
-				fmt.Fprintf(w, "    Body: %s\n", bodyJSON)
+				if _, err := fmt.Fprintf(w, "    Body: %s\n", bodyJSON); err != nil {
+					return fmt.Errorf("writing revert request body: %w", err)
+				}
 			}
 		}
 	}

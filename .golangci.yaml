@@ -71,21 +71,6 @@ linters:
       case:
         rules:
           json: snake
-  exclusions:
-    rules:
-    - path: '(.+)_test\.go'
-      linters:
-      - forcetypeassert
-    generated: lax
-    presets:
-    - comments
-    - common-false-positives
-    - legacy
-    - std-error-handling
-    paths:
-    - scanner.go
-    - tokens.go
-    - internal/lsp/opa
 formatters:
   enable:
   - gci

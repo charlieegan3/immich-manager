@@ -1,3 +1,4 @@
+// Package adduser provides functionality to add users to Immich albums.
 package adduser
 
 import (

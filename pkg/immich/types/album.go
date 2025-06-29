@@ -1,3 +1,4 @@
+// Package types provides Immich API data types.
 package types
 
 // Album represents an Immich album.

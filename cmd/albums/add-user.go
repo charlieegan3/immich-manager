@@ -1,3 +1,4 @@
+// Package albums provides album management commands.
 package albums
 
 import (

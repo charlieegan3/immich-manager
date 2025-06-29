@@ -1,3 +1,4 @@
+// Package users provides commands for managing Immich users.
 package users
 
 import (

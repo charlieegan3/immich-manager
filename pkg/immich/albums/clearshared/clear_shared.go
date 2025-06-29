@@ -1,3 +1,4 @@
+// Package clearshared provides functionality to clear shared users from Immich albums.
 package clearshared
 
 import (

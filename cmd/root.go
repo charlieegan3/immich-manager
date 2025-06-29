@@ -1,3 +1,4 @@
+// Package cmd provides command line interface for the immich-manager tool.
 package cmd
 
 import (
