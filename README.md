@@ -1,8 +1,10 @@
 # immich-manager
 
-A CLI tool for managing [Immich](https://immich.app/) albums through a
-plan-based approach. Generate plans for album operations, review them, and then
-apply or revert changes safely.
+A CLI tool for managing [Immich](https://immich.app/) using its API. The tool is
+designed to help automate some of the tasks I have needed in migrating to
+Immich. The tool primarily focuses on managing albums and their contents,
+allowing you to use a plan-based approach. "Smart" albums are used to expose a
+complete list of all shared photos with another user on the instance.
 
 ## Overview
 
