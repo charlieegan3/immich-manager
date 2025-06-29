@@ -1,5 +1,5 @@
 {
-  description = "opa";
+  description = "immich-manager";
   inputs = {
     nixpkgs = {
       type = "github";
@@ -26,6 +26,15 @@
       in
       {
         formatter = pkgs.nixpkgs-fmt;
+        
+        packages.default = pkgs.buildGoModule {
+          pname = "immich-manager";
+          version = "0.1.0";
+          vendorHash = "sha256-eKeUhS2puz6ALb+cQKl7+DGvm9Cl+miZAHX0imf9wdg=";
+          src = ./.;
+          checkPhase = "";
+        };
+        
         devShell = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             gci
